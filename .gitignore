@@ -1,0 +1,7 @@
+*
+!.gitignore
+!K2NN.h
+!twiddle_table.h
+!Makefile
+!main.cpp
+!README.md

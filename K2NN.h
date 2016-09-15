@@ -108,23 +108,17 @@ public:
 	std::vector<Partial> remainder;
 
 private:
-	// Multi-index hash table (MIHT)
-	std::vector<int>* const __restrict raw_table;
-
 	// Contiguous MIHT
 	std::vector<int> compact_table;
-
-	// Array of end indices in compact_table for each bin
-	int* const __restrict ends;
 
 	// Incoming 512-bit training vectors
 	const void* __restrict tset;
 
-	// Incoming 512-bit query vectors
-	const void* __restrict qset;
-
 	// Number of training vectors
 	int tcount;
+
+	// Incoming 512-bit query vectors
+	const void* __restrict qset;
 
 	// Number of query vectors
 	int qcount;
@@ -138,6 +132,12 @@ private:
 	// switches to the brute-force solver
 	// on the remaining query vectors
 	int max_twiddles;
+
+	// Multi-index hash table (MIHT)
+        std::vector<int>* const __restrict raw_table;
+
+        // Array of end indices in compact_table for each bin
+        int* const __restrict ends;
 
 	int hw_concur;
 
@@ -155,12 +155,12 @@ public:
 
 	Matcher(const void* const __restrict _tset, const int _tcount, const void* const __restrict _qset,
 		const int _qcount, const int _threshold, const int _max_twiddles) :
+		tset(_tset), tcount(_tcount), qset(_qset), qcount(_qcount), threshold(_threshold), max_twiddles(_max_twiddles),
 		raw_table(new std::vector<int>[eightbit ? 256 * 64 : 65536 * 32]),
 		ends(new int[(eightbit ? 256 * 64 : 65536 * 32) + 1]),
 		hw_concur(static_cast<int>(std::thread::hardware_concurrency())),
 		fut(new std::future<void>[hw_concur]),
-		rems(new std::vector<Partial>[hw_concur]),
-		tset(_tset), tcount(_tcount), qset(_qset), qcount(_qcount), threshold(_threshold), max_twiddles(_max_twiddles) {}
+		rems(new std::vector<Partial>[hw_concur]) {}
 
 	~Matcher() {
 		delete[] raw_table;

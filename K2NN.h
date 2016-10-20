@@ -134,10 +134,10 @@ private:
 	int max_twiddles;
 
 	// Multi-index hash table (MIHT)
-        std::vector<int>* const __restrict raw_table;
+    std::vector<int>* const __restrict raw_table;
 
-        // Array of end indices in compact_table for each bin
-        int* const __restrict ends;
+     // Array of end indices in compact_table for each bin
+    int* const __restrict ends;
 
 	int hw_concur;
 

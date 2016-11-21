@@ -188,7 +188,7 @@ private:
 	}
 
 	void _tabulate(const int start, const int count) {
-		for (uint64_t i = start; i < start + count; ++i) {
+		for (uint64_t i = static_cast<uint64_t>(start); i < static_cast<uint64_t>(start + count); ++i) {
 			for (uint64_t j = 0; j < (eightbit ? 256 : 65536); ++j) raw_table[(i << (eightbit ? 8 : 16)) + j].clear();
 			for (int t = 0; t < tcount; ++t) {
 				(eightbit ?

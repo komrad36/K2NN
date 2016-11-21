@@ -85,10 +85,10 @@ int main() {
 	Matcher<false> m(tvecs, size, qvecs, size, threshold, max_twiddles);
 
 	std::cout << std::endl << "Warming up..." << std::endl;
-	for (int i = 0; i < warmups; ++i) m.fastApproxMatch();
+	for (int i = 0; i < warmups; ++i) m.bruteMatch();
 	std::cout << "Testing..." << std::endl;
 	high_resolution_clock::time_point start = high_resolution_clock::now();
-	for (int i = 0; i < runs; ++i) m.fastApproxMatch();
+	for (int i = 0; i < runs; ++i) m.bruteMatch();
 	high_resolution_clock::time_point end = high_resolution_clock::now();
 
 	const double sec = static_cast<double>(duration_cast<nanoseconds>(end - start).count()) * 1e-9 / static_cast<double>(runs);

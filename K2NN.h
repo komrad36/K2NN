@@ -6,7 +6,7 @@
 *	kareem.omar@uah.edu
 *	https://github.com/komrad36
 *
-*	Last updated Sep 12, 2016
+*	Last updated Dec 9, 2016
 *******************************************************************/
 //
 // Fastest CPU implementation of both a brute-force
@@ -16,6 +16,11 @@
 // match between a query vector and a training vector
 // is more than a certain threshold number of bits
 // better than the second-best match.
+//
+// First-order matching (simply return a match if its
+// Hamming distance is less than threshold) is also
+// supported in the bruteMatch() method by calling
+// as bruteMatch(true).
 //
 // Yes, that means the DIFFERENCE in popcounts is used
 // for thresholding, NOT the ratio. This is the CORRECT
@@ -33,8 +38,13 @@
 //
 // Options:
 //
-// Brute-force complete (exact) match:
+// Brute-force complete (exact) 2NN match:
 // m.bruteMatch();
+// OR
+// m.bruteMatch(false);
+//
+// Brute-force complete (exact) first-order match:
+// m.bruteMatch(true);
 //
 // Single twiddle pass for a very fast partial match,
 // with no false positives (i.e. if a match is returned, it's truly the best match):
@@ -327,15 +337,15 @@ private:
 
 public:
 	// Simple but optimized brute force (n^2) matcher.
-	void bruteMatch() {
+	void bruteMatch(const bool first_order = false) {
 		match_idxs.resize(qcount);
 		const int stride = (qcount - 1) / hw_concur + 1;
 		int i = 0;
 		int start = 0;
 		for (; i < std::min(qcount - 1, hw_concur - 1); ++i, start += stride) {
-			fut[i] = std::async(std::launch::async, &Matcher::_bruteMatch, this, start, stride);
+			fut[i] = std::async(std::launch::async, &Matcher::_bruteMatch, this, first_order, start, stride);
 		}
-		fut[i] = std::async(std::launch::async, &Matcher::_bruteMatch, this, start, qcount - start);
+		fut[i] = std::async(std::launch::async, &Matcher::_bruteMatch, this, first_order, start, qcount - start);
 		for (int j = 0; j <= i; ++j) fut[j].wait();
 		matches.clear();
 		addMatches();
@@ -405,45 +415,77 @@ public:
 	};
 
 private:
-	void _bruteMatch(const int start, const int count) {
+	void _bruteMatch(const bool first_order, const int start, const int count) {
 		const uint64_t* const __restrict q64 = reinterpret_cast<const uint64_t* const __restrict>(qset);
 		const uint64_t* const __restrict t64 = reinterpret_cast<const uint64_t* const __restrict>(tset);
+		if (first_order) {
+			for (int q = start; q < start + count; ++q) {
+				match_idxs[q].x = -1;
+				const uint64_t qp = q << 3;
 
-		for (int q = start; q < start + count; ++q) {
-			const uint64_t qp = q << 3;
-			int best_i = -1;
-			int16_t best_v = 10000;
-			int16_t second_v = 20000;
+				const register uint64_t qa = q64[qp];
+				const register uint64_t qb = q64[qp + 1];
+				const register uint64_t qc = q64[qp + 2];
+				const register uint64_t qd = q64[qp + 3];
+				const register uint64_t qe = q64[qp + 4];
+				const register uint64_t qf = q64[qp + 5];
+				const register uint64_t qg = q64[qp + 6];
+				const register uint64_t qh = q64[qp + 7];
 
-			const register uint64_t qa = q64[qp];
-			const register uint64_t qb = q64[qp + 1];
-			const register uint64_t qc = q64[qp + 2];
-			const register uint64_t qd = q64[qp + 3];
-			const register uint64_t qe = q64[qp + 4];
-			const register uint64_t qf = q64[qp + 5];
-			const register uint64_t qg = q64[qp + 6];
-			const register uint64_t qh = q64[qp + 7];
-
-			for (int t = 0, tp = 0; t < tcount; ++t, tp += 8) {
-				const int16_t score = static_cast<int16_t>(
-					_mm_popcnt_u64(qa ^ t64[tp])
-					+ _mm_popcnt_u64(qb ^ t64[tp + 1])
-					+ _mm_popcnt_u64(qc ^ t64[tp + 2])
-					+ _mm_popcnt_u64(qd ^ t64[tp + 3])
-					+ _mm_popcnt_u64(qe ^ t64[tp + 4])
-					+ _mm_popcnt_u64(qf ^ t64[tp + 5])
-					+ _mm_popcnt_u64(qg ^ t64[tp + 6])
-					+ _mm_popcnt_u64(qh ^ t64[tp + 7]));
-				if (score < second_v) second_v = score;
-				if (score < best_v) {
-					second_v = best_v;
-					best_v = score;
-					best_i = t;
+				for (int t = 0, tp = 0; t < tcount; ++t, tp += 8) {
+					const int16_t score = static_cast<int16_t>(
+						_mm_popcnt_u64(qa ^ t64[tp])
+						+ _mm_popcnt_u64(qb ^ t64[tp + 1])
+						+ _mm_popcnt_u64(qc ^ t64[tp + 2])
+						+ _mm_popcnt_u64(qd ^ t64[tp + 3])
+						+ _mm_popcnt_u64(qe ^ t64[tp + 4])
+						+ _mm_popcnt_u64(qf ^ t64[tp + 5])
+						+ _mm_popcnt_u64(qg ^ t64[tp + 6])
+						+ _mm_popcnt_u64(qh ^ t64[tp + 7]));
+					if (score < threshold) {
+						match_idxs[q].x = t;
+						break;
+					}
 				}
 			}
+		}
+		else {
+			for (int q = start; q < start + count; ++q) {
+				const uint64_t qp = q << 3;
+				int best_i = -1;
+				int16_t best_v = 10000;
+				int16_t second_v = 20000;
 
-			if (second_v - best_v <= threshold) best_i = -1;
-			match_idxs[q].x = best_i;
+				const register uint64_t qa = q64[qp];
+				const register uint64_t qb = q64[qp + 1];
+				const register uint64_t qc = q64[qp + 2];
+				const register uint64_t qd = q64[qp + 3];
+				const register uint64_t qe = q64[qp + 4];
+				const register uint64_t qf = q64[qp + 5];
+				const register uint64_t qg = q64[qp + 6];
+				const register uint64_t qh = q64[qp + 7];
+
+				for (int t = 0, tp = 0; t < tcount; ++t, tp += 8) {
+					const int16_t score = static_cast<int16_t>(
+						_mm_popcnt_u64(qa ^ t64[tp])
+						+ _mm_popcnt_u64(qb ^ t64[tp + 1])
+						+ _mm_popcnt_u64(qc ^ t64[tp + 2])
+						+ _mm_popcnt_u64(qd ^ t64[tp + 3])
+						+ _mm_popcnt_u64(qe ^ t64[tp + 4])
+						+ _mm_popcnt_u64(qf ^ t64[tp + 5])
+						+ _mm_popcnt_u64(qg ^ t64[tp + 6])
+						+ _mm_popcnt_u64(qh ^ t64[tp + 7]));
+					if (score < second_v) second_v = score;
+					if (score < best_v) {
+						second_v = best_v;
+						best_v = score;
+						best_i = t;
+					}
+				}
+
+				if (second_v - best_v <= threshold) best_i = -1;
+				match_idxs[q].x = best_i;
+			}
 		}
 	}
 

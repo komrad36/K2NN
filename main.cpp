@@ -6,7 +6,7 @@
 *	kareem.omar@uah.edu
 *	https://github.com/komrad36
 *
-*	Last updated Sep 12, 2016
+*	Last updated Dec 9, 2016
 *******************************************************************/
 //
 // Fastest CPU implementation of both a brute-force
@@ -16,6 +16,11 @@
 // match between a query vector and a training vector
 // is more than a certain threshold number of bits
 // better than the second-best match.
+//
+// First-order matching (simply return a match if its
+// Hamming distance is less than threshold) is also
+// supported in the bruteMatch() method by calling
+// as bruteMatch(true).
 //
 // Yes, that means the DIFFERENCE in popcounts is used
 // for thresholding, NOT the ratio. This is the CORRECT
@@ -33,8 +38,13 @@
 //
 // Options:
 //
-// Brute-force complete (exact) match:
+// Brute-force complete (exact) 2NN match:
 // m.bruteMatch();
+// OR
+// m.bruteMatch(false);
+//
+// Brute-force complete (exact) first-order match:
+// m.bruteMatch(true);
 //
 // Single twiddle pass for a very fast partial match,
 // with no false positives (i.e. if a match is returned, it's truly the best match):
@@ -65,6 +75,7 @@ int main() {
 	constexpr int size = 10000;
 	constexpr int threshold = 5;
 	constexpr int max_twiddles = 2;
+	constexpr bool first_order = false;
 	// --------------------------------
 
 
@@ -85,10 +96,10 @@ int main() {
 	Matcher<false> m(tvecs, size, qvecs, size, threshold, max_twiddles);
 
 	std::cout << std::endl << "Warming up..." << std::endl;
-	for (int i = 0; i < warmups; ++i) m.bruteMatch();
+	for (int i = 0; i < warmups; ++i) m.bruteMatch(first_order);
 	std::cout << "Testing..." << std::endl;
 	high_resolution_clock::time_point start = high_resolution_clock::now();
-	for (int i = 0; i < runs; ++i) m.bruteMatch();
+	for (int i = 0; i < runs; ++i) m.bruteMatch(first_order);
 	high_resolution_clock::time_point end = high_resolution_clock::now();
 
 	const double sec = static_cast<double>(duration_cast<nanoseconds>(end - start).count()) * 1e-9 / static_cast<double>(runs);

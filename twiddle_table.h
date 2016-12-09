@@ -6,7 +6,7 @@
 *	kareem.omar@uah.edu
 *	https://github.com/komrad36
 *
-*	Last updated Sep 12, 2016
+*	Last updated Dec 9, 2016
 *******************************************************************/
 //
 // Fastest CPU implementation of both a brute-force
@@ -16,6 +16,11 @@
 // match between a query vector and a training vector
 // is more than a certain threshold number of bits
 // better than the second-best match.
+//
+// First-order matching (simply return a match if its
+// Hamming distance is less than threshold) is also
+// supported in the bruteMatch() method by calling
+// as bruteMatch(true).
 //
 // Yes, that means the DIFFERENCE in popcounts is used
 // for thresholding, NOT the ratio. This is the CORRECT
@@ -33,8 +38,13 @@
 //
 // Options:
 //
-// Brute-force complete (exact) match:
+// Brute-force complete (exact) 2NN match:
 // m.bruteMatch();
+// OR
+// m.bruteMatch(false);
+//
+// Brute-force complete (exact) first-order match:
+// m.bruteMatch(true);
 //
 // Single twiddle pass for a very fast partial match,
 // with no false positives (i.e. if a match is returned, it's truly the best match):
